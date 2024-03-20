@@ -1,0 +1,136 @@
+---
+- name: Load allheads-policy
+  slurp:
+    src: "../policies/allheads-policy.hcl"
+  register: r_policy
+- name: Here is your policy value
+  debug:
+    var: r_policy['content']|b64decode
+  when: debug_feed
+- name: Create allheads ACL Policy
+  uri:
+    url: "{{ vault_fqdn }}/v1/sys/policies/acl/allheads-policy"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "POST"
+    body_format: json
+    status_code: 204
+    body:
+      name: "allheads-policy"
+      policy: "{{ r_policy['content'] }}"
+- name: Get Auths
+  uri:
+    url: "{{ vault_fqdn }}/v1/sys/auth"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "GET"
+  register: r_hv_auths
+- name: Enable AppRole Auth Method
+  uri:
+    url: "{{ vault_fqdn }}/v1/sys/auth/approle"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "PUT"
+    body_format: json
+    status_code: 204
+    body:
+      type: "approle"
+      description: "AppRole for Allheads Session App"
+      config:
+        default_lease_ttl: 3600
+        max_lease_ttl: 86400
+  when: r_hv_auths.json['approle/'] is not defined
+- name: Configure AppRole for Allheads Session App
+  uri:
+    url: "{{ vault_fqdn }}/v1/auth/approle/role/allheads"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "POST"
+    body_format: json
+    status_code: 204
+    body:
+      token_ttl: 3600
+      token_max_ttl: 86400
+      token_policies: ["allheads-policy"]
+      token_period: 0
+      bind_secret_id: true
+- name: Get AppRole ID
+  uri:
+    url: "{{ vault_fqdn }}/v1/auth/approle/role/allheads/role-id"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "GET"
+  register: r_hv_approle_role_id
+- name: Here is your role_id value
+  debug:
+    var: r_hv_approle_role_id['json']['data']
+  when: debug_feed
+- name: Generate new Secret ID for AppRole
+  uri:
+    url: "{{ vault_fqdn }}/v1/auth/approle/role/allheads/secret-id"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "POST"
+    body_format: json
+    status_code: 200
+    body:
+      num_uses: 0
+      ttl: "24h"
+  register: r_hv_approle_secret_id
+- name: Here is your secret_id value
+  debug:
+    var: r_hv_approle_secret_id['json']['data']
+  when: debug_feed
+- name: Authenticate AppRole for Allheads Session App
+  uri:
+    url: "{{ vault_fqdn }}/v1/auth/approle/login"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "POST"
+    body_format: json
+    status_code: 200
+    body:
+      role_id: "{{ r_hv_approle_role_id['json']['data']['role_id'] }}"
+      secret_id: "{{ r_hv_approle_secret_id['json']['data']['secret_id'] }}"
+  register: r_hv_approle_login
+- name: Here is your auth client token value
+  debug:
+    var: r_hv_approle_login['json']['auth']['client_token']
+  when: debug_feed
+- name: Check for KV Engine
+  uri:
+    url: "{{ vault_fqdn }}/v1/secret/allheads/kv/config"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "GET"
+    body_format: json
+    status_code:
+      - 200
+      - 404
+  register: r_hv_engine_exist
+- name: Here is your check
+  debug:
+    var: r_hv_engine_exist
+- name: Enable KV-V2 Engine for allheads
+  when: r_hv_engine_exist.status == 404
+  uri:
+    url: "{{ vault_fqdn }}/v1/sys/mounts/secret/allheads/kv"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "POST"
+    body_format: json
+    status_code: 204
+    body:
+      type: "kv"
+      options: { "version": "2" }
+  register: r_hv_secret_engine
+- name: Create a dummy secret
+  uri:
+    url: "{{ vault_fqdn }}/v1/secret/allheads/kv/data/general"
+    headers:
+      X-Vault-Token: "{{ data_decoded['root_token'] }}"
+    method: "POST"
+    body_format: json
+    status_code: 200
+    body:
+      data: { "event": "AllheadsIT", "date": "20.03.2024" }

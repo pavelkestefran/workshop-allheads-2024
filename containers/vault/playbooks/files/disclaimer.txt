@@ -1,0 +1,3 @@
+DISCLAIMER: Please be aware that the provided boilerplate code is NOT SUITABLE FOR PRODUCTION USE by any means. 
+This is especially true for all the Vault infrastructure code provided. This is just a minimal required setup to start with a meaningful local development and educational purposes. Always prefer onboarding for an existing already established secret management solution before running everything on your own. 
+Securing Tier 1 Critical Solution, such as Vault, is nothing to be taken lightly. None of us would like to see our organization in newspaper headlines because of a security incident.

@@ -1,0 +1,14 @@
+---
+# - name: Print Tokens to Output?
+#   pause:
+#     prompt: Please confirm you want to print the root and application token to output! Press return to continue. Press Ctrl+c and then "a" to abort
+- name: Here are your tokens - VAULT ROOT TOKEN
+  vars:
+    root_token: "{{ data_decoded['root_token'] }}"
+  debug:
+    var: root_token
+- name: Here are your tokens - APPROLE CLIENT TOKEN
+  vars:
+    approle_client_token: "{{ r_hv_approle_login['json']['auth']['client_token'] }}"
+  debug:
+    var: approle_client_token

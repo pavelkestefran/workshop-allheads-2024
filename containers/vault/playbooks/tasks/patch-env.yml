@@ -1,0 +1,7 @@
+---
+- name: Patch .env file with App-Role Token
+  lineinfile:
+    path: /vault/.env
+    regexp: "^VAULT_TOKEN=*"
+    line: VAULT_TOKEN={{ r_hv_approle_login['json']['auth']['client_token'] }}
+    unsafe_writes: true

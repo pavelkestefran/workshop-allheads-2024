@@ -1,0 +1,8 @@
+---
+- name: Load disclaimer file
+  slurp:
+    src: "files/disclaimer.txt"
+  register: r_disclaimer
+- name: DISCLAIMER
+  debug:
+    msg: "{{ r_disclaimer['content'] | b64decode |split('\n')}}"
